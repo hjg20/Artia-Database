@@ -1,6 +1,7 @@
 import tkinter as tk
 import pandas as pd
 from tkinter import ttk
+import math
 import xlsxwriter
 
 data = pd.read_excel('Data.xlsx', dtype={'NDC11': str})
@@ -12,12 +13,56 @@ agents = mb['ProductName2'].unique().tolist()
 agent = ""
 states = pdl_master['ST'].unique().tolist()
 state = ""
+writer = pd.ExcelWriter('export.xlsx', engine='xlsxwriter')
 
 
 def export():
     global df
-    writer = pd.ExcelWriter('export.xlsx', engine='xlsxwriter')
-    df.to_excel(writer, sheet_name='export from code', index=False)
+    global writer
+    df.to_excel(writer, sheet_name='Utilization Summary', index=False, engine='xlsxwriter')
+    for column in df:
+        column_width = max(df[column].astype(str).map(len), len(column)) + 1.5
+        col_idx = df.columns.get_loc(column)
+        writer.sheets['Utilization Summary'].set_column(col_idx, col_idx, column_width)
+    dollar_format = writer.book.add_format({'num_format': "$#,##0.00"})
+    comma_format = writer.book.add_format({"num_format": 37})
+    util_summary_sheet = writer.sheets["Utilization Summary"]
+    util_summary_sheet.set_column('H:H', None, comma_format)
+    util_summary_sheet.set_column('I:I', None, comma_format)
+    util_summary_sheet.set_column('J:J', 12.5, dollar_format)
+
+    wb = xlsxwriter.Workbook(filename="export.xlsx")
+    ws = wb.add_worksheet(name='Util Sum')
+
+    def ignore_nan(_ws, _row, col, number, _format=None):
+        if math.isnan(number):
+            return _ws.write_blank(_row, col, None, _format)
+        else:
+             return None
+        
+    ws.add_write_handler(float, ignore_nan)
+
+    row_num = 1
+    rows = df.values.tolist()
+    sum_of_scripts = 0
+    sum_of_units = 0
+    sum_of_total_amount = 0
+    for row in rows:
+        if 'Total' not in row[8]:
+            row_num += 1
+        else:
+            scripts = float(row[9])
+            units = float(row[8])
+            total_amount = float(row[13])
+            sum_of_scripts += scripts
+            sum_of_units += units
+            sum_of_total_amount += total_amount
+            row_num += 1
+    row_num = 1
+    ###############
+
+
+
     writer.save()
 
 
@@ -87,6 +132,7 @@ def bid():
     global df
     global agent
     global state
+    global writer
     df = pd.DataFrame()
     for i in range(len(mb['ProductName2'])):
         ndcs.append(mb['NDC11'][i])
@@ -140,6 +186,17 @@ def bid():
     for i in range(len(df['Market Share'])):
         if 'Total' in df['ST'][i]:
             df['Market Share'][i] = ''
+    
+
+
+
+
+
+
+
+
+
+
     dataframe_label.config(text=df)
 
 
