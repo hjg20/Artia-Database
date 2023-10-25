@@ -1,7 +1,9 @@
 import tkinter as tk
+from tkinter import *
 import pandas as pd
 from tkinter import ttk
 import math
+from pandastable import Table, TableModel
 import xlsxwriter
 
 data = pd.read_excel('Data.xlsx', dtype={'NDC11': str})
@@ -16,12 +18,36 @@ state = ""
 writer = pd.ExcelWriter('export.xlsx', engine='xlsxwriter')
 
 
-def export():
+class TestApp(Frame):
+    def __init__(self, parent=None):
+        global df
+        self.parent = parent
+        Frame.__init__(self)
+        self.main = self.master
+        self.main.geometry('2000x2000+200+100')
+        self.main.title('Table app')
+        f = Frame(self.main)
+        f.grid(column=0, row=4, columnspan=3, )
+        self.table = pt = Table(f, dataframe=df,
+                                showtoolbar=True, showstatusbar=True)
+        pt.show()
+        return
+
+
+def export_pdl():
+    global df
+    writer = pd.ExcelWriter('export.xlsx', engine='xlsxwriter')
+    df.to_excel(writer, index=False, engine='xlsxwriter')
+    writer.save()
+
+
+
+def export_bid():
     global df
     global writer
     df.to_excel(writer, sheet_name='Utilization Summary', index=False, engine='xlsxwriter')
     for column in df:
-        column_width = max(df[column].astype(str).map(len), len(column)) + 1.5
+        column_width = max(df[column].astype(str).map(len).max(), len(column)) + 1.5
         col_idx = df.columns.get_loc(column)
         writer.sheets['Utilization Summary'].set_column(col_idx, col_idx, column_width)
     dollar_format = writer.book.add_format({'num_format': "$#,##0.00"})
@@ -29,7 +55,7 @@ def export():
     util_summary_sheet = writer.sheets["Utilization Summary"]
     util_summary_sheet.set_column('H:H', None, comma_format)
     util_summary_sheet.set_column('I:I', None, comma_format)
-    util_summary_sheet.set_column('J:J', 12.5, dollar_format)
+    util_summary_sheet.set_column('L:L', 12.5, dollar_format)
 
     wb = xlsxwriter.Workbook(filename="export.xlsx")
     ws = wb.add_worksheet(name='Util Sum')
@@ -48,21 +74,71 @@ def export():
     sum_of_units = 0
     sum_of_total_amount = 0
     for row in rows:
-        if 'Total' not in row[8]:
+        if 'Total' not in row[4]:
             row_num += 1
         else:
-            scripts = float(row[9])
-            units = float(row[8])
-            total_amount = float(row[13])
+            scripts = float(row[8])
+            units = float(row[7])
+            total_amount = float(row[11])
             sum_of_scripts += scripts
             sum_of_units += units
             sum_of_total_amount += total_amount
             row_num += 1
     row_num = 1
-    ###############
+    for row in rows:
+        if 'Total' not in row[4] and 'Total' not in row[1]:
+            ws.set_row(row_num, None, None, {'level': 2, "hidden": True})
+            ws.write_row(row_num, 0, row)
+            row_num += 1
+        else:
+            ws.set_row(row_num, None, None, {'level': 1})
+            ws.write_row(row_num, 0, row)
+            units = float(row[7])
+            scripts = float(row[8])
+            try:            
+                units_per_rx = units / scripts        
+            except ZeroDivisionError:            
+                units_per_rx = 0        
+            if 'Total' in row[1]:            
+                ws.write(row_num, 9, '')            
+                row_num += 1        
+            else:            
+                ws.write(row_num, 9, units_per_rx)            
+                row_num += 1
+
+    header = wb.add_format({"bg_color": "00314C", "font_color": 'white', 'bold': True})
+    dollar_column = wb.add_format({"num_format": "$#,##0.00"})
+    number_column = wb.add_format({"num_format": "#,##0"})
+    decimal_column = wb.add_format({"num_format": "#,##0.0"})
+    percentage_column = wb.add_format({"num_format": "0.00%"})
+    ws.write('A1', "ID", header)
+    ws.write('B1', "St", header)
+    ws.write('C1', "NDC11", header)
+    ws.write('D1', "ProductNameLong", header)
+    ws.write('E1', "ProductName2", header)
+    ws.write('F1', "Quarter", header)
+    ws.write('G1', "Year", header)
+    ws.write('H1', "Units", header)
+    ws.write('I1', "Scripts", header)
+    ws.write('J1', 'Units/Rx', header)
+    ws.write('K1', 'Market Share', header)
+    ws.write('L1', 'Total Amount', header)
+    ws.write('M1', 'PDL Status', header)
+    bold = wb.add_format({"bold": True})
+    ws.set_column('E:E', 30, bold)
+    ws.set_column('H:H', 10, number_column)
+    ws.set_column('I:I', 10, number_column)
+    ws.set_column('J:J', 10, decimal_column)
+    ws.set_column('K:K', 12, percentage_column)
+    ws.set_column('L:L', 15, dollar_column)
+    ws.write(row_num, 4, 'Grand Total')
+    ws.write(row_num, 7, sum_of_units)
+    ws.write(row_num, 8, sum_of_scripts)
+    ws.write(row_num, 11, sum_of_total_amount)
 
 
-
+    ws.activate()
+    wb.close()
     writer.save()
 
 
@@ -111,7 +187,7 @@ def get_pdl_status():
     df['NDC11'] = ndcs
     df['ProductName2'] = productname2s
     df['PDL Status'] = statuses
-    dataframe_label.config(text=df)
+    TestApp()
 
 
 def bid():
@@ -186,81 +262,7 @@ def bid():
     for i in range(len(df['Market Share'])):
         if 'Total' in df['ST'][i]:
             df['Market Share'][i] = ''
-    
-
-
-
-
-
-
-
-
-
-
-    dataframe_label.config(text=df)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    TestApp()
 
 
 root = tk.Tk()
@@ -275,32 +277,37 @@ agent_listbox.grid(column=0, row=0)
 state_list_items = tk.Variable(value=states)
 
 state_listbox = tk.Listbox(root, listvariable=state_list_items, height=5)
-state_listbox.grid(column=4, row=0)
+state_listbox.grid(column=2, row=0)
 
 agent_button = tk.Button(text='Select', command=select_agent)
 agent_button.grid(column=0, row=1)
 
 state_button = tk.Button(text='Select', command=select_state)
-state_button.grid(column=4, row=1)
+state_button.grid(column=2, row=1)
 
 pdl_button = tk.Button(text='Get PDL Status', command=get_pdl_status)
-pdl_button.grid(column=1, row=3)
+pdl_button.grid(column=0, row=3)
 
 bid_button = tk.Button(text='Create Bid Analysis', command=bid)
-bid_button.grid(column=3, row=3)
+bid_button.grid(column=2, row=3)
 
-export_button = tk.Button(text='Export', command=export)
-export_button.grid(column=2, row=5)
+export_button = tk.Button(text='Export PDL Status', command=export_pdl)
+export_button.grid(column=1, row=5)
+export_button = tk.Button(text='Export Bid Analysis', command=export_bid)
+export_button.grid(column=1, row=6)
 
 agent_label = tk.Label(root, text=agent)
 agent_label.grid(column=0, row=2)
 
 state_label = tk.Label(root, text=state)
-state_label.grid(column=4, row=2)
+state_label.grid(column=2, row=2)
 
 df = pd.DataFrame()
 
 dataframe_label = tk.Label(root, text=df, width=200)
-dataframe_label.grid(column=0, row=4, columnspan=5)
+dataframe_label.grid(column=0, row=4, columnspan=3)
+
+app = TestApp()
 
 root.mainloop()
+app.mainloop()
