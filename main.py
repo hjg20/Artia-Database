@@ -45,7 +45,7 @@ def get_pdl_status():
     global df
     global agent
     global state
-    df = pd.Dataframe()
+    df = pd.DataFrame()
     for i in range(len(mb['ProductName2'])):
         if mb['ProductName2'][i] == agent:
             ndcs.append(mb['NDC11'][i])
@@ -71,7 +71,9 @@ def get_pdl_status():
 
 def bid():
     ndcs = []
+    ids = []
     new_ndcs = []
+    productnamelongs = []
     productname2s = []
     sm_states = []
     units = []
@@ -90,17 +92,21 @@ def bid():
         ndcs.append(mb['NDC11'][i])
     for i in ndcs:
         for j in range(len(data['NDC11'])):
-            if i == data['NDC11'][j]:
+            if i == data['NDC11'][j] and state == data['St'][j]:
+                ids.append(data['ID'][j])
                 new_ndcs.append(data['NDC11'][j])
-                sm_states.append(state)
+                sm_states.append(data['St'][j])
+                productnamelongs.append(data['ProductNameLong'][j])
                 productname2s.append(data['ProductName2'][j])
                 year.append(data['Year'][j])
                 quarter.append(data['Quarter'][j])
                 units.append(data['Units'][j])
                 scripts.append(data['Scripts'][j])
                 total_amount.append(data['Total Amount'][j])
+    df['ID'] = ids            
     df['ST'] = sm_states
     df['NDC11'] = new_ndcs
+    df['ProductNameLong'] = productnamelongs
     df['ProductName2'] = productname2s
     df['Quarter'] = quarter
     df['Year'] = year
