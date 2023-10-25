@@ -114,6 +114,32 @@ def bid():
     df['Scripts'] = scripts
     df['Total Amount'] = total_amount
     #df['PDL Status'] = statuses
+    result_df = pd.DataFrame(columns=df.columns)
+    for st in df['ST'].unique():
+        bystate_rows = df[df['ST']==st]
+        l = []
+        for pn2 in bystate_rows['ProductName2'].unique():
+            pr = bystate_rows[bystate_rows['ProductName2'] == pn2]
+            l.append(pr)
+            units_sub = pr['Units'].sum()
+            scripts_sub = pr['Scripts'].sum()
+            ta_sub = pr['Total Amount'].sum()
+            sub_row = pd.DataFrame([['', st, '', '', f'{pn2} Total', '', '', units_sub, scripts_sub, ta_sub]], columns=df.columns)
+            l.append(sub_row)
+        units_sub = bystate_rows['Units'].sum()
+        script_sub = bystate_rows['Scripts'].sum()
+        ta_sub = bystate_rows['Total Amount'].sum()
+        sub_row = pd.DataFrame([['', f'{st} Total', '', '', '', '', '', units_sub, script_sub, ta_sub]], columns=df.columns)
+        l.append(sub_row)
+        result_df = pd.concat([result_df] + l)
+    result_df.reset_index(drop=True, inplace=True)
+    df = result_df
+    df.insert(9, 'Units/Rx', None)
+    df.insert(10, 'Market Share', None)
+    df['Market Share'] = df['Scripts'].div(df['Scripts'].where(df['ST'].str.contains('Total')).bfill())
+    for i in range(len(df['Market Share'])):
+        if 'Total' in df['ST'][i]:
+            df['Market Share'][i] = ''
     dataframe_label.config(text=df)
 
 
