@@ -13,7 +13,7 @@ pdl_master = pd.read_excel('PDLMaster.xlsx')
 
 agents = mb['ProductName2'].unique().tolist()
 agent = ""
-states = pdl_master['ST'].unique().tolist()
+states = sorted(pdl_master['ST'].unique().tolist())
 state = ""
 writer = pd.ExcelWriter('export.xlsx', engine='xlsxwriter')
 
@@ -39,7 +39,6 @@ def export_pdl():
     writer = pd.ExcelWriter('export.xlsx', engine='xlsxwriter')
     df.to_excel(writer, index=False, engine='xlsxwriter')
     writer.save()
-
 
 
 def export_bid():
@@ -161,8 +160,8 @@ def get_pdl_status():
     productname2s = []
     sm_states = []
     statuses = []
+    clients = []
     ct_names = []
-    ba_names = []
     global df
     global agent
     global state
@@ -176,11 +175,11 @@ def get_pdl_status():
         for j in range(len(name_alias['NDC11'])):
             if i == name_alias['NDC11'][j]:
                 ct_names.append(name_alias['Drug (generic)'][j])
-                ba_names.append(name_alias['Bid Analysis Drug Name'][j])
+                clients.append(name_alias['Client'][j])
     for i in range(len(ct_names)):
         counter = 0
         for j in range(len(pdl_master['State'])):
-            if ct_names[i] == pdl_master['Drug (generic)'][j] and ba_names[i] == pdl_master['Bid Analysis Drug Name'][j] and state == pdl_master['ST'][j] and counter < 1:
+            if ct_names[i] == pdl_master['Drug (generic)'][j] and clients[i] == pdl_master['Client'][j] and state == pdl_master['ST'][j] and counter < 1:
                 counter += 1
                 statuses.append(pdl_master['PDL Status'][j])
     df['ST'] = sm_states
@@ -204,7 +203,7 @@ def bid():
     quarter = []
     statuses = []
     ct_names = []
-    ba_names = []
+    clients = []
     global df
     global agent
     global state
@@ -225,6 +224,7 @@ def bid():
                 units.append(data['Units'][j])
                 scripts.append(data['Scripts'][j])
                 total_amount.append(data['Total Amount'][j])
+        
     df['ID'] = ids            
     df['ST'] = sm_states
     df['NDC11'] = new_ndcs
@@ -235,7 +235,6 @@ def bid():
     df['Units'] = units
     df['Scripts'] = scripts
     df['Total Amount'] = total_amount
-    #df['PDL Status'] = statuses
     result_df = pd.DataFrame(columns=df.columns)
     for st in df['ST'].unique():
         bystate_rows = df[df['ST']==st]
@@ -258,10 +257,30 @@ def bid():
     df = result_df
     df.insert(9, 'Units/Rx', None)
     df.insert(10, 'Market Share', None)
+    df.insert(12, 'PDL Status', None)
     df['Market Share'] = df['Scripts'].div(df['Scripts'].where(df['ST'].str.contains('Total')).bfill())
     for i in range(len(df['Market Share'])):
         if 'Total' in df['ST'][i]:
             df['Market Share'][i] = ''
+    for i in range(len(df['ProductName2'])):
+        for j in range(len(name_alias['ProductName2'])):
+            if name_alias['ProductName2'][j] in df['ProductName2'][i] and 'Total' in df['ProductName2'][i]:
+                ct_names.append(name_alias['Drug (generic)'][j])
+                clients.append(name_alias['Client'][j])
+        for i in range(len(ct_names)):
+            counter = 0
+            for j in range(len(pdl_master['State'])):
+                if ct_names[i] == pdl_master['Drug (generic)'][j] and clients[i] == pdl_master['Client'][j] and state == pdl_master['ST'][j] and counter < 1:
+                    counter += 1
+                    statuses.append(pdl_master['PDL Status'][j])
+    counter = 0
+    print(statuses)            
+    for i in range(len(df['ProductName2'])):
+        if 'Total' in df['ProductName2'][i]:
+            df['PDL Status'][i] = statuses[counter]
+            counter += 1
+        else:
+            df['PDL Status'][i] = ''
     TestApp()
 
 
