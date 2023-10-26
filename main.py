@@ -273,8 +273,7 @@ def bid():
                 if ct_names[i] == pdl_master['Drug (generic)'][j] and clients[i] == pdl_master['Client'][j] and state == pdl_master['ST'][j] and counter < 1:
                     counter += 1
                     statuses.append(pdl_master['PDL Status'][j])
-    counter = 0
-    print(statuses)            
+    counter = 0         
     for i in range(len(df['ProductName2'])):
         if 'Total' in df['ProductName2'][i]:
             df['PDL Status'][i] = statuses[counter]
