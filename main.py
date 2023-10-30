@@ -72,6 +72,9 @@ def export_bid():
     sum_of_scripts = 0
     sum_of_units = 0
     sum_of_total_amount = 0
+    sum_of_wac = 0
+    sum_of_pr = 0
+    sum_of_ura = 0
     for row in rows:
         if 'Total' not in row[4]:
             row_num += 1
@@ -79,9 +82,15 @@ def export_bid():
             scripts = float(row[8])
             units = float(row[7])
             total_amount = float(row[11])
+            wac = float(row[17])
+            phar = float(row[18])
+            ura = float(row[19])
             sum_of_scripts += scripts
             sum_of_units += units
             sum_of_total_amount += total_amount
+            sum_of_wac += wac
+            sum_of_pr += phar
+            sum_of_ura += ura
             row_num += 1
     row_num = 1
     for row in rows:
@@ -94,15 +103,43 @@ def export_bid():
             ws.write_row(row_num, 0, row)
             units = float(row[7])
             scripts = float(row[8])
+            wac = float(row[17])
+            phar = float(row[18])
+            ura = float(row[19])
             try:            
-                units_per_rx = units / scripts        
+                units_per_rx = units / scripts       
             except ZeroDivisionError:            
-                units_per_rx = 0        
+                units_per_rx = 0    
+            try:
+                wac_per_rx = wac / scripts
+            except ZeroDivisionError:
+                wac_per_rx = 0
+            try:
+                pr_per_rx = phar / scripts
+            except ZeroDivisionError:
+                pr_per_rx = 0
+            try:
+                ura_per_rx = ura / scripts
+            except ZeroDivisionError:
+                ura_per_rx = 0
+            if pr_per_rx - ura_per_rx < 0:
+                netcost_per_rx = 0
+            else:
+                netcost_per_rx = pr_per_rx - ura_per_rx
+
             if 'Total' in row[1]:            
-                ws.write(row_num, 9, '')            
+                ws.write(row_num, 9, '')    
+                ws.write(row_num, 18, '')
+                ws.write(row_num, 19, '')
+                ws.write(row_num, 20, '')
+                ws.write(row_num, 21, '')        
                 row_num += 1        
             else:            
-                ws.write(row_num, 9, units_per_rx)            
+                ws.write(row_num, 9, units_per_rx) 
+                ws.write(row_num, 20, wac_per_rx)
+                ws.write(row_num, 21, pr_per_rx)
+                ws.write(row_num, 22, ura_per_rx)
+                ws.write(row_num, 23, netcost_per_rx)            
                 row_num += 1
 
     header = wb.add_format({"bg_color": "00314C", "font_color": 'white', 'bold': True})
@@ -122,7 +159,19 @@ def export_bid():
     ws.write('J1', 'Units/Rx', header)
     ws.write('K1', 'Market Share', header)
     ws.write('L1', 'Total Amount', header)
-    ws.write('M1', 'PDL Status', header)
+    ws.write('M1', 'WAC/Unit', header)
+    ws.write('N1', 'NADAC/Unit', header)
+    ws.write('O1', 'Est. URA', header)
+    ws.write('P1', 'FUL', header)
+    ws.write('Q1', 'WAMP', header)
+    ws.write('R1', 'Total WAC', header)
+    ws.write('S1', 'Total Pharmacy Reimbursement', header)
+    ws.write('T1', 'Total Est. URA', header)
+    ws.write('U1', 'WAC/Rx', header)
+    ws.write('V1', 'Pharmacy Reimb/Rx', header)
+    ws.write('W1', 'URA/Rx', header)
+    ws.write('X1', 'Net Cost/Rx', header)
+    ws.write('Y1', 'PDL Status', header)
     bold = wb.add_format({"bold": True})
     ws.set_column('E:E', 30, bold)
     ws.set_column('H:H', 10, number_column)
@@ -130,16 +179,78 @@ def export_bid():
     ws.set_column('J:J', 10, decimal_column)
     ws.set_column('K:K', 12, percentage_column)
     ws.set_column('L:L', 15, dollar_column)
+    ws.set_column('R:R', 15, dollar_column)
+    ws.set_column('S:S', 15, dollar_column)
+    ws.set_column('T:T', 15, dollar_column)
+    ws.set_column('U:U', 15, dollar_column)
+    ws.set_column('V:V', 15, dollar_column)
+    ws.set_column('W:W', 15, dollar_column)
+    ws.set_column('X:X', 15, dollar_column)
     ws.write(row_num, 4, 'Grand Total')
     ws.write(row_num, 7, sum_of_units)
     ws.write(row_num, 8, sum_of_scripts)
     ws.write(row_num, 11, sum_of_total_amount)
+    ws.write(row_num, 17, sum_of_wac)
+    ws.write(row_num, 18, sum_of_pr)
+    ws.write(row_num, 19, sum_of_ura)
 
 
     ws.activate()
     wb.close()
     writer.save()
 
+
+def reimbursement_calculator(state, wac, nadac, ful, status):
+    if state == 'AL':
+        if status == 'Brand':
+            return min(ful, wac-wac*.04)
+        else:
+            return min(ful, wac)
+        
+    elif state == 'AK':
+        return min(nadac, ful, wac+wac*.01)
+    
+    elif state in ['AZ', 'MN']:
+        return nadac
+    
+    elif state in ['AR', 'CA', 'CT', 'DC', 'GA', 'HI', 'IN', 'KS', 'KY', 'ME', 'MD', 'MA', 'MI', 'NE', 'NV', 'NH', 'RI', 'UT', 'VT', 'VA', 'WA', 'WV', 'WY']:
+        return min(nadac, ful, wac)
+    
+    elif state in ['CO', 'DE', 'FL', 'LA', 'MS', 'MO', 'NC', 'ND', 'OH', 'OK', 'OR', 'SC', 'SD', 'WI']:
+        return min(nadac, wac)
+    
+    elif state in ['ID', 'IA', 'MT']:
+        return min(wac, ful)
+    
+    elif state == 'NJ':
+        return min(nadac, ful, wac-wac*.02)
+    
+    elif state == 'NM':
+        return min(nadac, ful, wac+wac*.06)
+    
+    elif state == 'NY':
+        if status == 'Brand':
+            return min(nadac, wac-wac*.033, ful)
+        else:
+            return min(nadac, wac-wac*.175, ful)
+        
+    elif state == 'PA':
+        if status == 'Brand':
+            return min(nadac, wac-wac*.033)
+        else:
+            return min(nadac, ful, wac-wac*.505)
+        
+    elif state == 'TN':
+        if status == 'Brand':
+            return min(ful, nadac, wac-wac*.03)
+        else:
+            return min(ful, nadac, wac-wac*.06)
+        
+    elif state == 'TX':
+        return min(nadac, wac-wac*.02)
+    
+    elif state == 'IL':
+        return min(nadac, wac-wac*.044)
 
 def select_agent():
     global agent
@@ -204,6 +315,14 @@ def bid():
     statuses = []
     ct_names = []
     clients = []
+    uras = []
+    wacs = []
+    nadacs = []
+    fuls = []
+    wamps = []
+    total_wacs = []
+    total_reimb = []
+    total_uras = []
     global df
     global agent
     global state
@@ -224,6 +343,23 @@ def bid():
                 units.append(data['Units'][j])
                 scripts.append(data['Scripts'][j])
                 total_amount.append(data['Total Amount'][j])
+                uras.append(data['est ura'][j])
+                wacs.append(data['WACUnitPrice'][j])
+                fuls.append(data['ACA-FULUnitPrice'][j])
+                wamps.append(data['ACA-WAMPUnitPrice'][j])
+                if data['NADAC-MonUnitPrice'][j] < data['NADAC-WKUnitPrice'][j]:
+                    nadac = data['NADAC-MonUnitPrice'][j]
+                    nadacs.append(nadac)
+                else:
+                    nadac = data['NADAC-WKUnitPrice'][j]
+                    nadacs.append(nadac)
+                total_wacs.append(data['WACUnitPrice'][j]*data['Units'][j])
+                total_uras.append(data['WACUnitPrice'][j]*data['Units'][j]*data['est ura'][j])
+                status = data['BrandGenericStatus'][j]
+                reimb = reimbursement_calculator(state, data['WACUnitPrice'][j], nadac, data['ACA-FULUnitPrice'][j], status)
+                total_reimb.append(reimb*data['Units'][j])
+                
+                
         
     df['ID'] = ids            
     df['ST'] = sm_states
@@ -235,6 +371,14 @@ def bid():
     df['Units'] = units
     df['Scripts'] = scripts
     df['Total Amount'] = total_amount
+    df['WAC/Unit'] = wacs
+    df['NADAC/Unit'] = nadacs
+    df['Est. URA'] = uras
+    df['FUL/Unit'] = fuls
+    df['WAMP/Unit'] = wamps
+    df['Total WAC'] = total_wacs
+    df['Total Pharmacy Reimbursement'] =  total_reimb
+    df['Total Est. URA'] = total_uras
     result_df = pd.DataFrame(columns=df.columns)
     for st in df['ST'].unique():
         bystate_rows = df[df['ST']==st]
@@ -245,19 +389,29 @@ def bid():
             units_sub = pr['Units'].sum()
             scripts_sub = pr['Scripts'].sum()
             ta_sub = pr['Total Amount'].sum()
-            sub_row = pd.DataFrame([['', st, '', '', f'{pn2} Total', '', '', units_sub, scripts_sub, ta_sub]], columns=df.columns)
+            total_wac_sub = pr['Total WAC'].sum()
+            total_phar_sub = pr['Total Pharmacy Reimbursement'].sum()
+            total_ura_sub = pr['Total Est. URA'].sum()
+            sub_row = pd.DataFrame([['', st, '', '', f'{pn2} Total', '', '', units_sub, scripts_sub, ta_sub, '', '', '', '', '', total_wac_sub, total_phar_sub, total_ura_sub]], columns=df.columns)
             l.append(sub_row)
         units_sub = bystate_rows['Units'].sum()
         script_sub = bystate_rows['Scripts'].sum()
         ta_sub = bystate_rows['Total Amount'].sum()
-        sub_row = pd.DataFrame([['', f'{st} Total', '', '', '', '', '', units_sub, script_sub, ta_sub]], columns=df.columns)
+        total_wac_sub = bystate_rows['Total WAC'].sum()
+        total_phar_sub = bystate_rows['Total Pharmacy Reimbursement'].sum()
+        total_ura_sub = bystate_rows['Total Est. URA'].sum()
+        sub_row = pd.DataFrame([['', f'{st} Total', '', '', '', '', '', units_sub, script_sub, ta_sub, '', '', '', '', '', total_wac_sub, total_phar_sub, total_ura_sub]], columns=df.columns)
         l.append(sub_row)
         result_df = pd.concat([result_df] + l)
     result_df.reset_index(drop=True, inplace=True)
     df = result_df
     df.insert(9, 'Units/Rx', None)
     df.insert(10, 'Market Share', None)
-    df.insert(12, 'PDL Status', None)
+    df.insert(20, 'WAC/Rx', None)
+    df.insert(21, 'Pharmacy Reimb/Rx', None)
+    df.insert(22, 'URA/Rx', None)
+    df.insert(23, 'Net Cost/Rx', None)
+    df.insert(24, 'PDL Status', None)
     df['Market Share'] = df['Scripts'].div(df['Scripts'].where(df['ST'].str.contains('Total')).bfill())
     for i in range(len(df['Market Share'])):
         if 'Total' in df['ST'][i]:
